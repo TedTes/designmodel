@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="designmodel mark">
+  <rect width="96" height="96" rx="20" fill="#0f172a"/>
+  <path d="M22 26h52v8H22z" fill="#2dd4bf"/>
+  <path d="M28 40h40v8H28z" fill="#60a5fa"/>
+  <path d="M34 54h28v8H34z" fill="#f59e0b"/>
+  <path d="M40 68h16v8H40z" fill="#f43f5e"/>
+  <path d="M22 26l18 42M74 26 56 68" fill="none" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+</svg>

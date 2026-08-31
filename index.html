@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="designmodel is a local-first playground for reasoning through system design abstraction levels."
+    />
+    <title>designmodel</title>
+    <link rel="icon" href="assets/abstraction-mark.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="src/styles.css" />
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="topbar">
+        <div class="brand">
+          <img src="assets/abstraction-mark.svg" alt="" width="38" height="38" />
+          <div>
+            <strong>designmodel</strong>
+            <span>System design abstraction playground</span>
+          </div>
+        </div>
+
+        <label class="project-name">
+          <span>Project</span>
+          <input id="projectName" type="text" autocomplete="off" />
+        </label>
+
+        <div class="top-actions" aria-label="Project actions">
+          <button class="secondary" type="button" data-action="new-blank" title="New blank design">
+            <span aria-hidden="true">+</span>
+            Blank
+          </button>
+          <button class="secondary" type="button" data-action="open-import" title="Import JSON">
+            JSON In
+          </button>
+          <button class="primary" type="button" data-action="open-export" title="Export design">
+            Export
+          </button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar" aria-label="Navigation and scenarios">
+          <section class="panel scenario-panel">
+            <div class="panel-heading">
+              <h2>Scenarios</h2>
+            </div>
+            <div id="scenarioList" class="scenario-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Levels</h2>
+            </div>
+            <nav id="levelNav" class="level-nav" aria-label="Abstraction levels"></nav>
+          </section>
+        </aside>
+
+        <section class="workspace" aria-live="polite">
+          <div id="workspace"></div>
+        </section>
+
+        <aside class="inspector" aria-label="Design analysis">
+          <div id="inspector"></div>
+        </aside>
+      </main>
+    </div>
+
+    <dialog id="exportDialog" class="dialog">
+      <form method="dialog" class="dialog-shell">
+        <header>
+          <h2>Export</h2>
+          <button class="icon-button" value="cancel" aria-label="Close export dialog">x</button>
+        </header>
+        <div class="segmented" role="group" aria-label="Export format">
+          <button type="button" data-export-mode="markdown" class="is-active">Markdown</button>
+          <button type="button" data-export-mode="json">JSON</button>
+        </div>
+        <textarea id="exportText" class="export-text" readonly></textarea>
+        <footer>
+          <button type="button" class="secondary" data-action="copy-export">Copy</button>
+          <button type="button" class="primary" data-action="download-export">Download</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="importDialog" class="dialog">
+      <form method="dialog" class="dialog-shell">
+        <header>
+          <h2>Import JSON</h2>
+          <button class="icon-button" value="cancel" aria-label="Close import dialog">x</button>
+        </header>
+        <textarea id="importText" class="export-text" placeholder="Paste a designmodel JSON export"></textarea>
+        <footer>
+          <button type="button" class="secondary" value="cancel" data-action="close-import">Cancel</button>
+          <button type="button" class="primary" data-action="import-json">Import</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
