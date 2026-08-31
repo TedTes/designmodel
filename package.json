@@ -1,0 +1,20 @@
+{
+  "name": "designmodel",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "A local-first system design abstraction playground.",
+  "scripts": {
+    "dev": "python3 -m http.server 4173",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run test && npm run build"
+  },
+  "keywords": [
+    "system-design",
+    "architecture",
+    "playground",
+    "education"
+  ],
+  "license": "MIT"
+}
