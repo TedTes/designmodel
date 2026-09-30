@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Board — Realtime chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0e12;
+      --panel: #14171e;
+      --card: #1a1e27;
+      --line: #2a3040;
+      --text: #eceae3;
+      --muted: #9aa3b4;
+      --dim: #667085;
+      --amber: #e3a23c;
+      --amber-d: rgba(227,162,60,.18);
+      --red: #d07070;
+      --blue: #8aa4d6;
+      --green: #6fbe9a;
+      --violet: #a48ad6;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", sans-serif; }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: 52px 1fr 44px;
+      grid-template-columns: 220px 1fr 300px;
+      grid-template-areas:
+        "top top top"
+        "pal board ctrl"
+        "stat stat stat";
+    }
+    header {
+      grid-area: top;
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--panel);
+    }
+    .word { font-weight: 600; letter-spacing: .08em; font-size: 12px; }
+    .sys { color: var(--muted); font-size: 13px; }
+    .sys b { color: var(--text); font-weight: 500; }
+    .levels { display: flex; gap: 4px; margin-left: 18px; background: #0e1016; padding: 3px; border-radius: 8px; border: 1px solid var(--line); }
+    .lvl {
+      border: 0; background: transparent; color: var(--dim);
+      padding: 5px 10px; border-radius: 6px; font-size: 12px;
+    }
+    .lvl.on { background: var(--card); color: var(--text); }
+    header .sp { flex: 1; }
+    .lens {
+      border: 1px solid var(--line); background: transparent; color: var(--muted);
+      padding: 5px 10px; border-radius: 6px; font-size: 12px;
+    }
+    .lens.on { border-color: var(--amber); color: var(--amber); background: var(--amber-d); }
+    .pal {
+      grid-area: pal; border-right: 1px solid var(--line); background: #10131a;
+      overflow: auto; padding: 10px;
+    }
+    .pal h3, .ctrl h3 {
+      margin: 12px 0 8px; font-size: 10px; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--dim); font-weight: 500;
+    }
+    .pal h3:first-child { margin-top: 4px; }
+    .tool {
+      width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line);
+      border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; font-size: 12px;
+    }
+    .tool:hover { border-color: var(--blue); }
+    .tool .nm { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--blue); }
+    .tool .ds { color: var(--dim); font-size: 11px; margin-top: 2px; }
+    .hint { font-size: 11px; color: var(--dim); line-height: 1.4; padding: 4px 2px 10px; }
+    .board-wrap {
+      grid-area: board; position: relative; overflow: hidden;
+      background: radial-gradient(ellipse at 50% 0%, #161a24 0%, var(--bg) 55%);
+    }
+    .gridbg {
+      position: absolute; inset: 0; opacity: .35;
+      background-image:
+        linear-gradient(#1b2030 1px, transparent 1px),
+        linear-gradient(90deg, #1b2030 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .stage { position: absolute; inset: 0; }
+    .fig {
+      position: absolute; width: 168px;
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: 10px 12px; cursor: pointer; user-select: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+    .fig:hover { border-color: #4a5368; }
+    .fig.on { border-color: var(--blue); }
+    .fig.bind { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber), 0 12px 36px rgba(227,162,60,.12); }
+    .fig.door { border-color: var(--red); }
+    .fig.slack { opacity: .72; }
+    .fig .k { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+    .fig .t { font-size: 14px; font-weight: 500; margin-top: 2px; }
+    .fig .meta { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+    .fig .chip {
+      display: inline-block; margin-top: 8px;
+      font-family: "IBM Plex Mono", monospace; font-size: 10px;
+      padding: 2px 6px; border-radius: 4px; background: #10131a; color: var(--blue); border: 1px solid var(--line);
+    }
+    .fig .tag {
+      position: absolute; top: -8px; right: 10px;
+      font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+      padding: 2px 6px; border-radius: 4px;
+    }
+    .tag.bind { background: var(--amber); color: #1a1204; }
+    .tag.slack { background: #222733; color: var(--dim); }
+    .tag.door { background: var(--red); color: #1a0a0a; }
+    .actor { width: 120px; text-align: center; background: #12151c; }
+    .ctrl {
+      grid-area: ctrl; border-left: 1px solid var(--line); background: var(--panel);
+      overflow: auto; padding: 12px 14px;
+    }
+    .ctrl label { display: block; font-size: 11px; color: var(--muted); margin: 10px 0 4px; }
+    .ctrl label span { float: right; color: var(--amber); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+    input[type=range] { width: 100%; accent-color: var(--amber); }
+    .readout {
+      background: #10131a; border: 1px solid var(--line); border-radius: 8px;
+      padding: 10px; font-size: 12px; line-height: 1.5; color: var(--muted); margin-top: 8px;
+    }
+    .readout b { color: var(--text); font-weight: 500; }
+    .ignore { border-color: rgba(208,112,112,.4); color: #e0b4b4; }
+    .trade { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .trade div { background: #10131a; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-size: 11px; line-height: 1.4; }
+    .trade b { display: block; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+    .sel {
+      width: 100%; background: #10131a; border: 1px solid var(--line); border-radius: 6px;
+      padding: 6px 8px; font-size: 12px;
+    }
+    footer {
+      grid-area: stat; display: flex; align-items: center; gap: 16px;
+      padding: 0 14px; border-top: 1px solid var(--line); background: #10131a;
+      font-size: 11px; color: var(--dim); font-family: "IBM Plex Mono", monospace;
+    }
+    footer b { color: var(--muted); font-weight: 500; }
+    .back { color: var(--muted); text-decoration: none; font-size: 12px; border: 1px solid var(--line); padding: 5px 10px; border-radius: 6px; }
+    .back:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a class="back" href="../index.html">Lenses</a>
+      <div class="word">BOARD</div>
+      <div class="sys">System · <b>Realtime chat</b></div>
+      <div class="levels">
+        <button class="lvl on" data-l="context">Context</button>
+        <button class="lvl" data-l="path">Live path</button>
+        <button class="lvl" data-l="tools">Tooling</button>
+      </div>
+      <div class="sp"></div>
+      <button class="lens on" data-lens="bind">Bind</button>
+      <button class="lens" data-lens="door">Doors</button>
+      <button class="lens" data-lens="trade">Tradeoff</button>
+    </header>
+    <aside class="pal">
+      <h3>Place a tool</h3>
+      <div class="hint">Select a figure, then attach a tool. The figure updates at the current scale.</div>
+      <div id="palette"></div>
+    </aside>
+    <div class="board-wrap">
+      <div class="gridbg"></div>
+      <svg class="wires" id="wires"></svg>
+      <div class="stage" id="stage"></div>
+    </div>
+    <aside class="ctrl">
+      <h3>Scale controls</h3>
+      <label>Concurrent <span id="v-conc"></span></label>
+      <input type="range" id="conc" min="0" max="3" step="1" value="0" />
+      <label>Hot room size <span id="v-room"></span></label>
+      <input type="range" id="room" min="0" max="3" step="1" value="1" />
+      <label>Message rate <span id="v-rate"></span></label>
+      <input type="range" id="rate" min="0" max="3" step="1" value="1" />
+      <h3>Constraint</h3>
+      <select class="sel" id="force">
+        <option value="auto">Auto — whatever actually binds</option>
+        <option value="conn">Force: connections</option>
+        <option value="pres">Force: presence chatter</option>
+        <option value="fan">Force: fanout</option>
+        <option value="hist">Force: history writes</option>
+      </select>
+      <h3>Tradeoff</h3>
+      <select class="sel" id="trade">
+        <option value="simple">Prefer simple (fewer moving parts)</option>
+        <option value="headroom">Prefer headroom (pay earlier)</option>
+        <option value="exact">Prefer exact presence / delivery</option>
+      </select>
+      <div class="readout" id="readout"></div>
+      <div class="trade" id="tradebox"></div>
+      <div class="readout ignore" id="ignore"></div>
+    </aside>
+    <footer>
+      <span>here <b id="f-here"></b></span>
+      <span>binder <b id="f-bind"></b></span>
+      <span>view <b id="f-view"></b></span>
+      <span>lens <b id="f-lens"></b></span>
+    </footer>
+  </div>
+<script>
+const CONC = ["100", "10k", "100k", "1M"];
+const ROOM = ["20", "200", "2k", "20k"];
+const RATE = ["quiet", "chatty", "burst", "firehose"];
+const TOOLS = [
+  { id: "socketio", name: "Socket.io", layer: "conn", ds: "sockets + rooms" },
+  { id: "phoenix", name: "Phoenix Channels", layer: "conn", ds: "high density" },
+  { id: "uws", name: "uWebSockets", layer: "conn", ds: "thin sockets" },
+  { id: "redis", name: "Redis", layer: "pres", ds: "presence / pubsub" },
+  { id: "nats", name: "NATS", layer: "fan", ds: "fanout + backpressure" },
+  { id: "kafka", name: "Kafka", layer: "hist", ds: "log — one-way door" },
+  { id: "pg", name: "Postgres", layer: "hist", ds: "history SoT" },
+  { id: "scylla", name: "Scylla", layer: "hist", ds: "write-heavy rooms" },
+  { id: "os", name: "OpenSearch", layer: "search", ds: "async search" },
+  { id: "nginx", name: "NGINX sticky", layer: "conn", ds: "LB for sockets" },
+];
+const state = {
+  view: "context", lens: "bind", conc: 0, room: 1, rate: 1, force: "auto", trade: "simple", selected: "chat",
+  attached: { conn: "socketio", pres: "redis", fan: null, hist: "pg", search: null, chat: null, push: null, client: null }
+};
+function binder() {
+  if (state.force !== "auto") return state.force;
+  const c = state.conc, r = state.room, rate = state.rate;
+  if (c >= 3 || (c >= 2 && r >= 2)) return "fan";
+  if (c >= 2 && rate >= 2) return "fan";
+  if (c >= 1 && state.attached.pres === "redis" && rate >= 2 && r >= 2) return "pres";
+  if (c >= 1 && !state.attached.conn) return "conn";
+  if (c === 1) return "conn";
+  if (c >= 3 && state.attached.hist === "pg") return "hist";
+  if (c === 0) return null;
+  return "conn";
+}
+function doorOf(layer) {
+  const t = state.attached[layer];
+  if (t === "kafka") return true;
+  if (layer === "hist" && t === "pg" && state.conc >= 3) return true;
+  if (layer === "pres" && t === "redis" && state.conc >= 2 && state.trade === "exact") return true;
+  return false;
+}
+function toolName(id) {
+  const t = TOOLS.find(x => x.id === id);
+  return t ? t.name : "none";
+}
+function label(id) {
+  return ({ conn: "Connections", pres: "Presence", fan: "Fanout", hist: "History", search: "Search" })[id] || id;
+}
+function connMeta() {
+  if (state.conc === 0) return "one process · slack";
+  if (state.conc === 1) return "open sockets on one box";
+  return "must partition · sticky LB";
+}
+function presMeta() {
+  if (state.conc === 0) return "in-memory is enough";
+  if (state.trade === "exact" && state.room >= 2) return "exact presence will drown the room";
+  return "TTL keys · room-scoped";
+}
+function fanMeta() {
+  if (state.conc < 2 && state.room < 2) return "loop the room · slack";
+  if (state.room >= 2) return "hot room × subscribers";
+  return "broker between boxes";
+}
+function histMeta() {
+  if (state.conc < 3) return "write path usually slack";
+  return "hot-room writes + catch-up";
+}
+function layout() {
+  const bind = binder();
+  if (state.view === "context") {
+    return [
+      { id: "client", kind: "actor", x: 80, y: 180, k: "actor", t: "Clients", meta: "web / mobile sockets" },
+      { id: "chat", kind: "sys", x: 380, y: 160, k: "system", t: "Chat service", meta: bind ? "binder inside: " + label(bind) : "slack at this load" },
+      { id: "push", kind: "sys", x: 680, y: 180, k: "adjacent", t: "Push / offline", meta: "off the live path" },
+    ];
+  }
+  if (state.view === "path") {
+    return [
+      { id: "conn", x: 70, y: 70, k: "layer", t: "Connections", meta: connMeta() },
+      { id: "pres", x: 310, y: 70, k: "layer", t: "Presence", meta: presMeta() },
+      { id: "fan", x: 550, y: 70, k: "layer", t: "Fanout", meta: fanMeta() },
+      { id: "hist", x: 310, y: 280, k: "layer", t: "History", meta: histMeta() },
+      { id: "search", x: 550, y: 280, k: "layer", t: "Search", meta: "off-path · do not put on send" },
+    ];
+  }
+  const spots = [["conn", 70, 80, "Connections"],["pres", 310, 80, "Presence"],["fan", 550, 80, "Fanout"],["hist", 190, 280, "History"],["search", 430, 280, "Search"]];
+  return spots.map(([id, x, y, name]) => ({
+    id, x, y, k: "slot", t: name,
+    meta: state.attached[id] ? toolName(state.attached[id]) : "empty slot — attach a tool"
+  }));
+}
+function wiresFor(figs) {
+  const by = Object.fromEntries(figs.map(f => [f.id, f]));
+  const links = state.view === "context" ? [["client", "chat"],["chat", "push"]] : [["conn", "pres"],["pres", "fan"],["fan", "hist"],["hist", "search"]];
+  return links.map(([a, b]) => {
+    const A = by[a], B = by[b];
+    if (!A || !B) return "";
+    const x1 = A.x + 84, y1 = A.y + 44, x2 = B.x + 84, y2 = B.y + 44;
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3a4254" stroke-width="1.4" />`;
+  }).join("");
+}
+function renderPalette() {
+  document.getElementById("palette").innerHTML = TOOLS.map(t => `
+    <button class="tool" data-tool="${t.id}">
+      <div class="nm">${t.name}</div>
+      <div class="ds">${t.ds} · sits on ${label(t.layer)}</div>
+    </button>`).join("");
+}
+function renderBoard() {
+  const figs = layout();
+  const bind = binder();
+  document.getElementById("stage").innerHTML = figs.map(f => {
+    const isBind = state.lens === "bind" && f.id === bind;
+    const isDoor = state.lens === "door" && doorOf(f.id);
+    const isSlack = state.lens === "bind" && bind && f.id !== bind && ["conn","pres","fan","hist","search"].includes(f.id);
+    const chip = state.attached[f.id] ? `<span class="chip">${toolName(state.attached[f.id])}</span>` : "";
+    let tag = "";
+    if (isBind) tag = `<span class="tag bind">binds</span>`;
+    else if (isDoor) tag = `<span class="tag door">door</span>`;
+    else if (isSlack) tag = `<span class="tag slack">slack</span>`;
+    return `<div class="fig ${f.kind==="actor"?"actor":""} ${f.id===state.selected?"on":""} ${isBind?"bind":""} ${isDoor?"door":""} ${isSlack?"slack":""}"
+      data-id="${f.id}" style="left:${f.x}px;top:${f.y}px">
+      ${tag}<div class="k">${f.k}</div><div class="t">${f.t}</div><div class="meta">${f.meta}</div>${chip}</div>`;
+  }).join("");
+  document.getElementById("wires").innerHTML = wiresFor(figs);
+}
+function renderCtrl() {
+  document.getElementById("v-conc").textContent = CONC[state.conc];
+  document.getElementById("v-room").textContent = ROOM[state.room] + " members";
+  document.getElementById("v-rate").textContent = RATE[state.rate];
+  const bind = binder();
+  const pick = bind ? toolName(state.attached[bind]) : "—";
+  let why = "Nothing binds. One box, small rooms.";
+  if (bind === "conn") why = "Open connections on a single box run out before CPU does.";
+  if (bind === "pres") why = "Join/leave/typing in a large room outruns useful messages.";
+  if (bind === "fan") why = "One message × hot-room subscribers. A broker will not save a box that still iterates N sockets.";
+  if (bind === "hist") why = "Write + catch-up on a single Postgres primary in hot rooms.";
+  document.getElementById("readout").innerHTML = bind
+    ? `<b>${label(bind)}</b> binds at ${CONC[state.conc]} concurrent, room ${ROOM[state.room]}, ${RATE[state.rate]}. Tool on it: <b>${pick || "none"}</b>. ${why}`
+    : `<b>Slack everywhere.</b> ${why}`;
+  const trades = {
+    simple: ["Keep the live path short", "You will re-partition later"],
+    headroom: ["Put Redis/NATS in now", "More moving parts at 100 concurrent"],
+    exact: ["Honor every presence event", "Presence becomes the binder in big rooms"],
+  };
+  const tr = trades[state.trade];
+  document.getElementById("tradebox").innerHTML = `<div><b>Do</b>${tr[0]}</div><div><b>Cost</b>${tr[1]}</div>`;
+  let ign = "Ignore search on the send path.";
+  if (bind === "conn") ign = "Ignore Kafka. You do not have a fanout or log problem yet.";
+  if (bind === "fan") ign = "Ignore a new database. History is not the binder.";
+  if (bind === "hist") ign = "Ignore search-cluster sizing. It is off-path.";
+  if (state.attached.hist === "kafka") ign = "Kafka-as-log is a one-way door. Ignore it unless you need replay.";
+  document.getElementById("ignore").innerHTML = `<b>Ignore</b><br>${ign}`;
+  document.getElementById("f-here").textContent = CONC[state.conc];
+  document.getElementById("f-bind").textContent = bind ? label(bind) : "none";
+  document.getElementById("f-view").textContent = state.view;
+  document.getElementById("f-lens").textContent = state.lens;
+}
+function render() { renderBoard(); renderCtrl(); }
+renderPalette();
+render();
+document.getElementById("conc").oninput = e => { state.conc = +e.target.value; render(); };
+document.getElementById("room").oninput = e => { state.room = +e.target.value; render(); };
+document.getElementById("rate").oninput = e => { state.rate = +e.target.value; render(); };
+document.getElementById("force").onchange = e => { state.force = e.target.value; render(); };
+document.getElementById("trade").onchange = e => { state.trade = e.target.value; render(); };
+document.querySelectorAll(".lvl").forEach(b => b.onclick = () => {
+  state.view = b.dataset.l;
+  document.querySelectorAll(".lvl").forEach(x => x.classList.toggle("on", x===b));
+  if (state.view === "path") state.selected = binder() || "conn";
+  if (state.view === "context") state.selected = "chat";
+  render();
+});
+document.querySelectorAll(".lens").forEach(b => b.onclick = () => {
+  state.lens = b.dataset.lens;
+  document.querySelectorAll(".lens").forEach(x => x.classList.toggle("on", x===b));
+  render();
+});
+document.getElementById("stage").addEventListener("click", e => {
+  const fig = e.target.closest(".fig");
+  if (!fig) return;
+  state.selected = fig.dataset.id;
+  render();
+});
+document.getElementById("palette").addEventListener("click", e => {
+  const t = e.target.closest(".tool");
+  if (!t) return;
+  const tool = TOOLS.find(x => x.id === t.dataset.tool);
+  const target = ["conn","pres","fan","hist","search"].includes(state.selected) ? state.selected : tool.layer;
+  state.attached[target] = tool.id;
+  state.selected = target;
+  if (state.view === "context") state.view = "tools";
+  document.querySelectorAll(".lvl").forEach(x => x.classList.toggle("on", x.dataset.l===state.view));
+  render();
+});
+</script>
+</body>
+</html>
