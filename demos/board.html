@@ -1,1 +1,260 @@
-see-local
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Board — Realtime chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0e12; --panel: #14171e; --card: #1a1e27; --line: #2a3040;
+      --text: #eceae3; --muted: #9aa3b4; --dim: #667085;
+      --amber: #e3a23c; --amber-d: rgba(227,162,60,.18); --red: #d07070; --blue: #8aa4d6;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", sans-serif; }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .app {
+      height: 100%; display: grid;
+      grid-template-rows: 48px 56px 1fr 32px;
+      grid-template-columns: 72px 1fr;
+      grid-template-areas: "top top" "ctrl ctrl" "pal board" "stat stat";
+    }
+    header { grid-area: top; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .word { font-weight: 600; letter-spacing: .08em; font-size: 11px; }
+    .sys { color: var(--muted); font-size: 12px; text-decoration: none; }
+    .sys b { color: var(--text); font-weight: 500; }
+    .levels { display: flex; gap: 3px; background: #0e1016; padding: 3px; border-radius: 8px; border: 1px solid var(--line); }
+    .lvl { border: 0; background: transparent; color: var(--dim); padding: 4px 9px; border-radius: 6px; font-size: 12px; }
+    .lvl.on { background: var(--card); color: var(--text); }
+    header .sp { flex: 1; }
+    .lens { border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 4px 9px; border-radius: 6px; font-size: 12px; }
+    .lens.on { border-color: var(--amber); color: var(--amber); background: var(--amber-d); }
+    .ctrl { grid-area: ctrl; display: flex; align-items: center; gap: 14px; padding: 0 12px; border-bottom: 1px solid var(--line); background: #10131a; overflow-x: auto; }
+    .ctrl-item { display: flex; align-items: center; gap: 8px; min-width: max-content; }
+    .ctrl-item label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+    .ctrl-item label b { color: var(--amber); font-family: "IBM Plex Mono", monospace; font-weight: 500; margin-left: 4px; text-transform: none; letter-spacing: 0; }
+    input[type=range] { width: 88px; accent-color: var(--amber); }
+    .sel { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12px; max-width: 180px; }
+    .strip { flex: 1; min-width: 220px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .strip b { color: var(--text); font-weight: 500; }
+    .strip.ign { color: #e0b4b4; }
+    .pal { grid-area: pal; border-right: 1px solid var(--line); background: #10131a; overflow: auto; padding: 8px 6px; }
+    .tool { width: 100%; background: transparent; border: 0; padding: 7px 0; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .tool:hover .ico { border-color: var(--blue); }
+    .ico { width: 36px; height: 36px; border-radius: 9px; background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; font-family: "IBM Plex Mono", monospace; font-size: 10px; color: var(--blue); font-weight: 500; }
+    .tool .nm { font-size: 9px; color: var(--muted); line-height: 1.15; text-align: center; max-width: 60px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tool .ds { font-size: 8px; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+    .board-wrap { grid-area: board; position: relative; overflow: hidden; background: radial-gradient(ellipse at 50% 0%, #161a24 0%, var(--bg) 55%); }
+    .gridbg { position: absolute; inset: 0; opacity: .35; background-image: linear-gradient(#1b2030 1px, transparent 1px), linear-gradient(90deg, #1b2030 1px, transparent 1px); background-size: 28px 28px; }
+    svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .stage { position: absolute; inset: 0; }
+    .fig { position: absolute; width: 168px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; cursor: pointer; user-select: none; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .fig:hover { border-color: #4a5368; }
+    .fig.on { border-color: var(--blue); }
+    .fig.bind { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber), 0 12px 36px rgba(227,162,60,.12); }
+    .fig.door { border-color: var(--red); }
+    .fig.slack { opacity: .72; }
+    .fig .k { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+    .fig .t { font-size: 14px; font-weight: 500; margin-top: 2px; }
+    .fig .meta { font-size: 11px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+    .fig .chip { display: inline-block; margin-top: 8px; font-family: "IBM Plex Mono", monospace; font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #10131a; color: var(--blue); border: 1px solid var(--line); }
+    .fig .tag { position: absolute; top: -8px; right: 10px; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+    .tag.bind { background: var(--amber); color: #1a1204; }
+    .tag.slack { background: #222733; color: var(--dim); }
+    .tag.door { background: var(--red); color: #1a0a0a; }
+    .actor { width: 120px; text-align: center; background: #12151c; }
+    footer { grid-area: stat; display: flex; align-items: center; gap: 16px; padding: 0 12px; border-top: 1px solid var(--line); background: #10131a; font-size: 11px; color: var(--dim); font-family: "IBM Plex Mono", monospace; }
+    footer b { color: var(--muted); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <a class="sys" href="../index.html">Lenses</a>
+      <div class="word">BOARD</div>
+      <div class="sys">System · <b>Realtime chat</b></div>
+      <div class="levels">
+        <button class="lvl on" data-l="context">Context</button>
+        <button class="lvl" data-l="path">Live path</button>
+        <button class="lvl" data-l="tools">Tooling</button>
+      </div>
+      <div class="sp"></div>
+      <button class="lens on" data-lens="bind">Bind</button>
+      <button class="lens" data-lens="door">Doors</button>
+      <button class="lens" data-lens="trade">Tradeoff</button>
+    </header>
+    <div class="ctrl">
+      <div class="ctrl-item"><label>Concurrent<b id="v-conc"></b></label><input type="range" id="conc" min="0" max="3" step="1" value="0" /></div>
+      <div class="ctrl-item"><label>Room<b id="v-room"></b></label><input type="range" id="room" min="0" max="3" step="1" value="1" /></div>
+      <div class="ctrl-item"><label>Rate<b id="v-rate"></b></label><input type="range" id="rate" min="0" max="3" step="1" value="1" /></div>
+      <select class="sel" id="force">
+        <option value="auto">Constraint · auto</option>
+        <option value="conn">Force connections</option>
+        <option value="pres">Force presence</option>
+        <option value="fan">Force fanout</option>
+        <option value="hist">Force history</option>
+      </select>
+      <select class="sel" id="trade">
+        <option value="simple">Tradeoff · simple</option>
+        <option value="headroom">Tradeoff · headroom</option>
+        <option value="exact">Tradeoff · exact</option>
+      </select>
+      <div class="strip" id="readout"></div>
+      <div class="strip ign" id="ignore"></div>
+    </div>
+    <aside class="pal" id="palette"></aside>
+    <div class="board-wrap">
+      <div class="gridbg"></div>
+      <svg class="wires" id="wires"></svg>
+      <div class="stage" id="stage"></div>
+    </div>
+    <footer>
+      <span>here <b id="f-here"></b></span>
+      <span>binder <b id="f-bind"></b></span>
+      <span>view <b id="f-view"></b></span>
+      <span>do <b id="f-do"></b></span>
+    </footer>
+  </div>
+<script>
+const CONC = ["100", "10k", "100k", "1M"];
+const ROOM = ["20", "200", "2k", "20k"];
+const RATE = ["quiet", "chatty", "burst", "firehose"];
+const TOOLS = [
+  { id: "socketio", mark: "SIO", name: "Socket.io", layer: "conn" },
+  { id: "phoenix", mark: "PHX", name: "Phoenix", layer: "conn" },
+  { id: "uws", mark: "UWS", name: "uWebSockets", layer: "conn" },
+  { id: "redis", mark: "RDS", name: "Redis", layer: "pres" },
+  { id: "nats", mark: "NATS", name: "NATS", layer: "fan" },
+  { id: "kafka", mark: "KFK", name: "Kafka", layer: "hist" },
+  { id: "pg", mark: "PG", name: "Postgres", layer: "hist" },
+  { id: "scylla", mark: "SCY", name: "Scylla", layer: "hist" },
+  { id: "os", mark: "OS", name: "OpenSearch", layer: "search" },
+  { id: "nginx", mark: "NGX", name: "NGINX", layer: "conn" },
+];
+const state = {
+  view: "context", lens: "bind", conc: 0, room: 1, rate: 1, force: "auto", trade: "simple", selected: "chat",
+  attached: { conn: "socketio", pres: "redis", fan: null, hist: "pg", search: null, chat: null, push: null, client: null }
+};
+function binder() {
+  if (state.force !== "auto") return state.force;
+  const c = state.conc, r = state.room, rate = state.rate;
+  if (c >= 3 || (c >= 2 && r >= 2)) return "fan";
+  if (c >= 2 && rate >= 2) return "fan";
+  if (c >= 1 && state.attached.pres === "redis" && rate >= 2 && r >= 2) return "pres";
+  if (c >= 1 && !state.attached.conn) return "conn";
+  if (c === 1) return "conn";
+  if (c >= 3 && state.attached.hist === "pg") return "hist";
+  if (c === 0) return null;
+  return "conn";
+}
+function doorOf(layer) {
+  const t = state.attached[layer];
+  if (t === "kafka") return true;
+  if (layer === "hist" && t === "pg" && state.conc >= 3) return true;
+  if (layer === "pres" && t === "redis" && state.conc >= 2 && state.trade === "exact") return true;
+  return false;
+}
+function toolName(id) { const t = TOOLS.find(x => x.id === id); return t ? t.name : "none"; }
+function label(id) { return ({ conn: "Connections", pres: "Presence", fan: "Fanout", hist: "History", search: "Search" })[id] || id; }
+function connMeta() { if (state.conc === 0) return "one process · slack"; if (state.conc === 1) return "open sockets on one box"; return "must partition · sticky LB"; }
+function presMeta() { if (state.conc === 0) return "in-memory is enough"; if (state.trade === "exact" && state.room >= 2) return "exact presence will drown the room"; return "TTL keys · room-scoped"; }
+function fanMeta() { if (state.conc < 2 && state.room < 2) return "loop the room · slack"; if (state.room >= 2) return "hot room × subscribers"; return "broker between boxes"; }
+function histMeta() { if (state.conc < 3) return "write path usually slack"; return "hot-room writes + catch-up"; }
+function layout() {
+  const bind = binder();
+  if (state.view === "context") return [
+    { id: "client", kind: "actor", x: 80, y: 180, k: "actor", t: "Clients", meta: "web / mobile sockets" },
+    { id: "chat", kind: "sys", x: 380, y: 160, k: "system", t: "Chat service", meta: bind ? "binder inside: " + label(bind) : "slack at this load" },
+    { id: "push", kind: "sys", x: 680, y: 180, k: "adjacent", t: "Push / offline", meta: "off the live path" },
+  ];
+  if (state.view === "path") return [
+    { id: "conn", x: 70, y: 70, k: "layer", t: "Connections", meta: connMeta() },
+    { id: "pres", x: 310, y: 70, k: "layer", t: "Presence", meta: presMeta() },
+    { id: "fan", x: 550, y: 70, k: "layer", t: "Fanout", meta: fanMeta() },
+    { id: "hist", x: 310, y: 280, k: "layer", t: "History", meta: histMeta() },
+    { id: "search", x: 550, y: 280, k: "layer", t: "Search", meta: "off-path · do not put on send" },
+  ];
+  return [["conn",70,80,"Connections"],["pres",310,80,"Presence"],["fan",550,80,"Fanout"],["hist",190,280,"History"],["search",430,280,"Search"]].map(([id,x,y,name]) => ({ id,x,y,k:"slot",t:name, meta: state.attached[id] ? toolName(state.attached[id]) : "empty slot" }));
+}
+function wiresFor(figs) {
+  const by = Object.fromEntries(figs.map(f => [f.id, f]));
+  const links = state.view === "context" ? [["client","chat"],["chat","push"]] : [["conn","pres"],["pres","fan"],["fan","hist"],["hist","search"]];
+  return links.map(([a,b]) => { const A=by[a], B=by[b]; if(!A||!B) return ""; return `<line x1="${A.x+84}" y1="${A.y+44}" x2="${B.x+84}" y2="${B.y+44}" stroke="#3a4254" stroke-width="1.4" />`; }).join("");
+}
+function renderPalette() {
+  document.getElementById("palette").innerHTML = TOOLS.map(t => `<button class="tool" data-tool="${t.id}" title="${t.name}"><span class="ico">${t.mark}</span><span class="nm">${t.name}</span><span class="ds">${t.layer}</span></button>`).join("");
+}
+function renderBoard() {
+  const figs = layout(); const bind = binder();
+  document.getElementById("stage").innerHTML = figs.map(f => {
+    const isBind = state.lens === "bind" && f.id === bind;
+    const isDoor = state.lens === "door" && doorOf(f.id);
+    const isSlack = state.lens === "bind" && bind && f.id !== bind && ["conn","pres","fan","hist","search"].includes(f.id);
+    const chip = state.attached[f.id] ? `<span class="chip">${toolName(state.attached[f.id])}</span>` : "";
+    let tag = "";
+    if (isBind) tag = `<span class="tag bind">binds</span>`;
+    else if (isDoor) tag = `<span class="tag door">door</span>`;
+    else if (isSlack) tag = `<span class="tag slack">slack</span>`;
+    return `<div class="fig ${f.kind==="actor"?"actor":""} ${f.id===state.selected?"on":""} ${isBind?"bind":""} ${isDoor?"door":""} ${isSlack?"slack":""}" data-id="${f.id}" style="left:${f.x}px;top:${f.y}px">${tag}<div class="k">${f.k}</div><div class="t">${f.t}</div><div class="meta">${f.meta}</div>${chip}</div>`;
+  }).join("");
+  document.getElementById("wires").innerHTML = wiresFor(figs);
+}
+function renderCtrl() {
+  document.getElementById("v-conc").textContent = CONC[state.conc];
+  document.getElementById("v-room").textContent = ROOM[state.room];
+  document.getElementById("v-rate").textContent = RATE[state.rate];
+  const bind = binder(); const pick = bind ? toolName(state.attached[bind]) : "—";
+  let why = "Slack everywhere.";
+  if (bind === "conn") why = "Sockets on one box run out first.";
+  if (bind === "pres") why = "Presence chatter outruns useful messages.";
+  if (bind === "fan") why = "Hot-room fanout is the scarce hop.";
+  if (bind === "hist") why = "Hot-room writes + catch-up on one primary.";
+  document.getElementById("readout").innerHTML = bind ? `<b>${label(bind)}</b> binds · ${pick} · ${why}` : `<b>Slack</b> · ${why}`;
+  let ign = "Ignore search on the send path.";
+  if (bind === "conn") ign = "Ignore Kafka.";
+  if (bind === "fan") ign = "Ignore a new database.";
+  if (bind === "hist") ign = "Ignore search sizing.";
+  if (state.attached.hist === "kafka") ign = "Kafka-as-log is a door.";
+  document.getElementById("ignore").textContent = "Ignore · " + ign;
+  const trades = { simple: "Keep the live path short", headroom: "Pay for Redis/NATS earlier", exact: "Honor every presence event" };
+  document.getElementById("f-here").textContent = CONC[state.conc];
+  document.getElementById("f-bind").textContent = bind ? label(bind) : "none";
+  document.getElementById("f-view").textContent = state.view;
+  document.getElementById("f-do").textContent = trades[state.trade];
+}
+function render() { renderBoard(); renderCtrl(); }
+renderPalette(); render();
+document.getElementById("conc").oninput = e => { state.conc = +e.target.value; render(); };
+document.getElementById("room").oninput = e => { state.room = +e.target.value; render(); };
+document.getElementById("rate").oninput = e => { state.rate = +e.target.value; render(); };
+document.getElementById("force").onchange = e => { state.force = e.target.value; render(); };
+document.getElementById("trade").onchange = e => { state.trade = e.target.value; render(); };
+document.querySelectorAll(".lvl").forEach(b => b.onclick = () => {
+  state.view = b.dataset.l;
+  document.querySelectorAll(".lvl").forEach(x => x.classList.toggle("on", x===b));
+  if (state.view === "path") state.selected = binder() || "conn";
+  if (state.view === "context") state.selected = "chat";
+  render();
+});
+document.querySelectorAll(".lens").forEach(b => b.onclick = () => {
+  state.lens = b.dataset.lens;
+  document.querySelectorAll(".lens").forEach(x => x.classList.toggle("on", x===b));
+  render();
+});
+document.getElementById("stage").addEventListener("click", e => {
+  const fig = e.target.closest(".fig"); if (!fig) return; state.selected = fig.dataset.id; render();
+});
+document.getElementById("palette").addEventListener("click", e => {
+  const t = e.target.closest(".tool"); if (!t) return;
+  const tool = TOOLS.find(x => x.id === t.dataset.tool);
+  const target = ["conn","pres","fan","hist","search"].includes(state.selected) ? state.selected : tool.layer;
+  state.attached[target] = tool.id; state.selected = target;
+  if (state.view === "context") state.view = "tools";
+  document.querySelectorAll(".lvl").forEach(x => x.classList.toggle("on", x.dataset.l===state.view));
+  render();
+});
+</script>
+</body>
+</html>
