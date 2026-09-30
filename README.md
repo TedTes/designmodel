@@ -11,6 +11,7 @@ designmodel is a local-first system design playground based on the six-level abs
 - Trace concerns like correctness, scale, latency, failure, and security across all levels.
 - Inject constraints and failures to see which lenses should be revisited first.
 - Export the model as Markdown or JSON, then import JSON later.
+- Open a visual **Board** of moving parts (scale sliders, attachable tools, bind/door/tradeoff lenses).
 
 ## Run Locally
 
@@ -19,6 +20,8 @@ npm run dev
 ```
 
 Open `http://localhost:4173`.
+
+Board: `http://localhost:4173/demos/board.html`
 
 No npm packages are required for runtime or tests. The project uses browser-native JavaScript modules and Node's built-in test runner.
 
@@ -38,6 +41,7 @@ This runs the unit tests and builds a static copy into `dist/`.
 - `src/styles.css` - responsive tool interface.
 - `tests/framework.test.mjs` - model and export tests.
 - `scripts/build.mjs` - dependency-free static build validator.
+- `demos/board.html` - visual system board (levels, tools, scale controls).
 
 ## Improvement Ideas Already Included
 
